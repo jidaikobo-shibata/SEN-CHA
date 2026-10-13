@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sen-cha"
+version = "0.9.0"
+description = "Local video flash candidate screening tool"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = ["numpy", "Flask", "waitress", "Pillow", "yt-dlp[default]"]
+
+[project.scripts]
+sen-cha = "tvfc.cli:main"
+tvfc = "tvfc.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tvfc = ["static/*", "templates/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SEN-CHA — 点滅確認候補</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="app-menu"><nav aria-label="アプリメニュー">
+<details class="menu"><summary>ファイル</summary><div class="menu-items">
+<button type="button" id="menu-file-open">動画を開く <kbd>Ctrl+O</kbd></button>
+<button type="button" id="menu-url-open">YouTube URLを指定</button>
+<button type="button" data-format="html" disabled>HTMLを保存 <kbd>Ctrl+S</kbd></button>
+<button type="button" data-format="json" disabled>JSONを保存</button>
+<button type="button" data-format="csv" disabled>CSVを保存</button>
+<button type="button" id="quit" aria-keyshortcuts="Control+Q">アプリを終了 <kbd>Ctrl+Q</kbd></button>
+</div></details>
+<details class="menu"><summary>表示</summary><div class="menu-items">
+<button type="button" id="menu-show-source">入力を表示</button>
+<button type="button" id="menu-show-settings">検出条件を表示</button>
+<button type="button" id="menu-show-candidates" disabled>候補一覧を表示</button>
+</div></details>
+<details class="menu"><summary>ヘルプ</summary><div class="menu-items">
+<button type="button" id="menu-help-guide">使い方 <kbd>F1</kbd></button>
+<button type="button" id="menu-help-detection">WCAGと検出条件</button>
+<button type="button" id="menu-help-license">ライセンス</button>
+<button type="button" id="menu-help-about">このアプリについて</button>
+</div></details>
+</nav></header>
+<main id="main">
+<div class="toolbar" role="group" aria-label="主な操作">
+<button type="button" id="open-file" class="secondary">動画を開く</button>
+<button type="button" id="open-url" class="secondary">URLを指定</button>
+<button id="start" type="submit" form="analysis-form">解析を開始</button>
+<button id="cancel" type="button" class="secondary" disabled>中止</button>
+<button type="button" id="save-main" class="secondary" disabled>保存</button>
+</div>
+<details id="source-details" class="source-panel" open><summary>入力と検出条件 <span id="source-name">動画未選択</span></summary>
+<form id="analysis-form">
+<fieldset><legend>動画の指定方法</legend>
+<label><input type="radio" name="source" value="file" checked> 端末内の動画ファイル</label>
+<label><input type="radio" name="source" value="youtube"> YouTubeの単一動画URL</label>
+</fieldset>
+<div id="file-source">
+<label for="video">動画ファイル <span class="required">必須</span></label>
+<input id="video" name="video" type="file" accept=".mp4,.mov,.webm,.mkv,.avi,video/*" required aria-describedby="file-help">
+<p id="file-help" class="hint">8ビットSDR・4GiB以内・4時間以内。動画は端末内の作業領域に一時コピーします。解析終了・中止時に削除し、元の動画は変更しません。外部には送信しません。</p>
+</div>
+<div id="youtube-source" hidden>
+<label for="youtube-url">YouTube動画のURL <span class="required">必須</span></label>
+<input id="youtube-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=..." aria-describedby="youtube-help">
+<p id="youtube-help" class="hint">取得を開始するとYouTubeへ接続します。公開された単一動画を端末内に一時保存して解析します。取得ファイルは次の解析・終了時に削除し、中止・失敗時も削除します。認証が必要な動画とライブ配信は対象外です。取得できない動画もあります。<a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTubeの利用条件</a>も確認してください。</p>
+</div>
+<details id="settings-details" class="settings-panel"><summary>検出条件を変更</summary>
+<label for="sensitivity">検出感度</label>
+<select id="sensitivity"><option value="high" selected>標準設定</option><option value="standard">低感度（候補を絞る）</option></select>
+<label for="region-mode">局所領域の細かさ</label>
+<select id="region-mode" aria-describedby="region-help">
+<option value="fine">細かく探す：8×6＋画面全体</option>
+<option value="broad">広い変化を優先：4×3＋画面全体</option>
+<option value="whole">画面全体のみ</option>
+</select>
+<p id="region-help" class="hint">広い設定ほど候補は減りやすく、局所的な点滅を見逃しやすくなります。画面全体の検出は常に行います。WCAGの閃光面積を測る設定ではありません。</p>
+</details>
+</form>
+</details>
+<section id="status-panel" class="status-panel" aria-label="解析状況">
+<p id="status" role="status" aria-live="polite">動画を選択してください。</p>
+<label for="progress" class="visually-hidden">処理の進捗</label><progress id="progress" max="100" value="0">0%</progress>
+<p id="elapsed" class="hint">経過時間：0秒</p>
+<p id="error" role="alert" class="error"></p>
+</section>
+<section id="empty-state" class="empty-state" aria-label="開始画面"><p>動画を開き、「解析を開始」を押してください。</p><p class="hint">動画は自動再生しません。結果は確認候補として表示します。</p></section>
+<section id="results-panel" class="panel" aria-labelledby="results-title" hidden>
+<h2 id="results-title" tabindex="-1">確認候補</h2>
+<p id="summary"></p><p id="measurement" class="hint"></p>
+<nav id="candidate-index" class="candidate-index" aria-label="候補一覧" hidden><label for="candidate-select">候補一覧</label><select id="candidate-select"></select><button type="button" id="candidate-go" class="secondary">候補へ移動</button></nav>
+<div class="inspection-layout">
+<section class="overview" aria-labelledby="overview-title">
+<h3 id="overview-title">変化の位置を探す</h3>
+<p class="hint">上の帯は動画全体、下は横スクロールできる詳細グラフです。色の濃さは変化量で、危険度やWCAGの閾値ではありません。</p>
+<p class="chart-key"><span class="key-luminance">明暗の変化</span><span class="key-red">赤色指標の変化</span><span class="key-candidate">要確認候補</span><span class="key-window">詳細の表示範囲</span></p>
+<div id="overview-map" role="slider" tabindex="0" aria-label="詳細グラフの表示範囲" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-describedby="overview-help"></div>
+<p id="overview-help" class="hint">全体の帯をクリックするか、フォーカスして左右矢印キーで表示範囲を移動できます。</p>
+<div id="chart-scroll" tabindex="0" role="region" aria-label="横スクロールできる詳細グラフ" aria-describedby="chart-duration"><div id="chart-track"><div id="chart"></div></div></div>
+<p id="chart-duration" class="hint"></p>
+<label for="playback-position">グラフの再生位置：<output id="playback-time" for="playback-position">0:00.000</output></label>
+<input id="playback-position" type="range" min="0" max="0" step="0.001" value="0" disabled>
+</section>
+<section class="playback" aria-labelledby="playback-title">
+<h3 id="playback-title">動画で時刻を確認する</h3>
+<p class="hint">強い点滅が含まれる可能性があります。自動再生はしません。候補やグラフから移動しても一時停止します。</p>
+<video id="playback-video" controls playsinline preload="metadata" aria-label="解析した動画の再生" hidden></video>
+<p id="playback-status" class="hint" role="status">再生元を準備しています。</p>
+</section>
+</div>
+<div id="candidates"></div>
+<details><summary>検出条件と制約</summary><pre id="conditions"></pre><ul id="limitations"></ul></details>
+</section>
+<footer><p>小さな点滅の見逃しや、カメラ移動による誤検出があります。「候補なし」は適合・安全を意味しません。動画は自動再生しません。</p></footer>
+</main>
+<dialog id="guide-dialog" aria-labelledby="guide-title"><h2 id="guide-title">使い方</h2><ol><li>動画ファイルを開くか、YouTube URLを指定します。</li><li>必要なら検出条件を変更し、解析を開始します。</li><li>候補の静止画と時刻を確認します。グラフから移動しても動画は一時停止します。</li><li>「保存」またはファイルメニューからレポートを保存できます。</li></ol><form method="dialog"><button>閉じる</button></form></dialog>
+<dialog id="detection-dialog" aria-labelledby="detection-title">
+<h2 id="detection-title">WCAGとこのアプリの検出条件</h2>
+<h3>WCAGの達成基準</h3>
+<p>2.3.1（レベルA）は、任意の1秒間に3回を超える閃光がないか、一般閃光・赤色閃光の閾値を下回ることを求めます。2.3.2（レベルAAA）は、任意の1秒間に3回を超える閃光がないことを求めます。</p>
+<ul>
+<li><a href="https://waic.jp/translations/WCAG22/Understanding/three-flashes-or-below-threshold" target="_blank" rel="noopener noreferrer">WCAG 2.3.1「3回の閃光、又は閾値以下」解説書（外部サイト）</a></li>
+<li><a href="https://waic.jp/translations/WCAG22/Understanding/three-flashes" target="_blank" rel="noopener noreferrer">WCAG 2.3.2「3回の閃光」解説書（外部サイト）</a></li>
+</ul>
+<h3>このアプリが調べるもの</h3>
+<p>動画を最大320ピクセル幅に縮小し、画面全体と選択した固定グリッドの領域ごとに、明暗と赤色優勢の変化を調べます。反対方向の変化を2つ組にした反復候補を、移動する1秒間で数えます。</p>
+<ul><li>標準設定：低感度の条件に加え、変化量0.06以上の反復を1秒間に3組以上検出。</li><li>低感度（候補を絞る）：変化量0.10以上の反復を1秒間に4組以上検出。候補が消えても安全とは判断できません。</li><li>領域：8×6＋画面全体、4×3＋画面全体、画面全体のみから選択。</li></ul>
+<p>これらは確認候補を探すための独自の条件です。WCAGの同時閃光面積、任意位置の視野、正式な赤色閃光閾値は判定しません。候補がない場合も適合や安全を意味しません。</p>
+<form method="dialog"><button>閉じる</button></form>
+</dialog>
+<dialog id="about-dialog" aria-labelledby="about-title"><h2 id="about-title">SEN-CHA</h2><p>SENko CHeck tool for Accessibility。試作版 {{ version }}。動画の点滅確認候補を抽出します。</p><p>WCAG適合判定や医療上の安全性評価は行いません。</p><form method="dialog"><button>閉じる</button></form></dialog>
+<dialog id="license-dialog" aria-labelledby="license-title">
+<h2 id="license-title">ライセンス</h2>
+<h3>本体</h3>
+<p>SEN-CHAの本体はMITライセンスです。許諾条件の原文を以下に表示します。</p>
+<pre id="app-license" class="legal-text" tabindex="0" aria-label="本体のMITライセンス原文">読み込み中…</pre>
+<h3>同梱物</h3>
+<p>Python、NumPy、Flask、yt-dlpなどの条件はそれぞれ異なります。FFmpegは現在のUbuntu配布版ではLGPL 2.1以降です。以下の一覧と原文を確認してください。</p>
+<h3>第三者ソフトウェア一覧</h3>
+<pre id="license-notices" class="legal-text" tabindex="0" aria-label="第三者ソフトウェア一覧">読み込み中…</pre>
+<label for="license-file">同梱ライセンス原文</label>
+<select id="license-file"><option value="">原文を選択</option></select>
+<pre id="license-content" class="legal-text" tabindex="0" aria-label="選択したライセンス原文" hidden></pre>
+<p id="license-error" role="alert" class="error"></p>
+<form method="dialog"><button>閉じる</button></form>
+</dialog>
+</body>
+</html>
